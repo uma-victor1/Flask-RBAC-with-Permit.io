@@ -58,6 +58,13 @@ flask init-db
 
 ## Running the Application
 
+```
+export FLASK_APP=run.py
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+```
+
 1. Start the development server:
 
 ```bash

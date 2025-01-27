@@ -16,6 +16,9 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        "DATABASE_URL", "postgresql://localhost/task_manager"
+    )
 
 
 class TestingConfig(Config):

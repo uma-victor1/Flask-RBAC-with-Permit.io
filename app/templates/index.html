@@ -1,0 +1,37 @@
+{% extends "base.html" %} {% block title %}Home{% endblock %} {% block content
+%}
+<div class="container">
+  <div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+      <h1 class="display-4">Welcome to Task Manager</h1>
+      <p class="lead">
+        A secure task management system with role-based access control.
+      </p>
+
+      {% if current_user.is_authenticated %}
+      <div class="mt-4">
+        <a
+          href="{{ url_for('tasks.list_tasks') }}"
+          class="btn btn-primary btn-lg"
+          >View My Tasks</a
+        >
+        <a
+          href="{{ url_for('tasks.create_task') }}"
+          class="btn btn-success btn-lg"
+          >Create New Task</a
+        >
+      </div>
+      {% else %}
+      <div class="mt-4">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg"
+          >Login</a
+        >
+        <a href="{{ url_for('auth.register') }}" class="btn btn-success btn-lg"
+          >Register</a
+        >
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

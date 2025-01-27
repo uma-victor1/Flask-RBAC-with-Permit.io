@@ -1,0 +1,154 @@
+{% extends "base.html" %} {% block title %}Admin Dashboard{% endblock %} {%
+block content %}
+<div class="container">
+  <h1 class="mb-4">Task Management Dashboard</h1>
+
+  <!-- Overall Statistics -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <h5 class="card-title">Total Tasks</h5>
+          <h2 class="card-text">{{ total_tasks }}</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-warning">
+        <div class="card-body">
+          <h5 class="card-title">Pending Tasks</h5>
+          <h2 class="card-text">{{ pending_tasks }}</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <h5 class="card-title">Completed Tasks</h5>
+          <h2 class="card-text">{{ completed_tasks }}</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Statistics -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">User Statistics</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Total Tasks</th>
+                  <th>Pending</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stat in user_stats %}
+                <tr>
+                  <td>{{ stat.username }}</td>
+                  <td>{{ stat.total_tasks }}</td>
+                  <td>{{ stat.pending_tasks }}</td>
+                  <td>{{ stat.completed_tasks }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Tasks -->
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">All Tasks</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Owner</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Due Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for task in tasks %}
+                <tr>
+                  <td>{{ task.title }}</td>
+                  <td>{{ task.owner.username }}</td>
+                  <td>
+                    <span
+                      class="badge bg-{{ 'success' if task.status == 'completed' else 'warning' }}"
+                    >
+                      {{ task.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      class="badge bg-{{ 'danger' if task.priority == 'high' else 'info' if task.priority == 'medium' else 'secondary' }}"
+                    >
+                      {{ task.priority }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ task.due_date.strftime('%Y-%m-%d') if task.due_date else
+                    'No due date' }}
+                  </td>
+                  <td>
+                    <div class="btn-group">
+                      <a
+                        href="{{ url_for('tasks.view_task', id=task.id) }}"
+                        class="btn btn-sm btn-info"
+                        >View</a
+                      >
+                      <a
+                        href="{{ url_for('tasks.edit_task', id=task.id) }}"
+                        class="btn btn-sm btn-warning"
+                        >Edit</a
+                      >
+                      <button
+                        onclick="confirmDelete('{{ task.id }}')"
+                        class="btn btn-sm btn-danger"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function confirmDelete(taskId) {
+    if (confirm("Are you sure you want to delete this task?")) {
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = `/tasks/${taskId}/delete`;
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
+</script>
+{% endblock %}
