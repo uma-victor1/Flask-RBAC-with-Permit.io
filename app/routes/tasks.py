@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from ..models.models import Task, User
 from ..extensions import db
-from ..utils.permit_helper import check_permission
+from ..utils.permit_helper import check_permission, get_permit
 from datetime import datetime
 
 tasks = Blueprint("tasks", __name__, url_prefix="/tasks")
@@ -10,14 +10,21 @@ tasks = Blueprint("tasks", __name__, url_prefix="/tasks")
 
 @tasks.route("/")
 @login_required
-@check_permission(action="read", resource="task")
+@check_permission(action="readall", resource="task")
 async def list_tasks():
-    """List tasks based on user permissions"""
+    """List tasks based on permissions"""
     try:
-        if current_user.role == "admin":
+        permit = get_permit()
+        # Check for readall permission instead of role
+        has_readall = await permit.check(
+            str(current_user.id), "readall", {"type": "task"}
+        )
+
+        if has_readall:
             tasks = Task.query.all()
         else:
             tasks = Task.query.filter_by(user_id=current_user.id).all()
+
         return render_template("tasks/list.html", tasks=tasks)
     except Exception as e:
         flash("Error loading tasks.", "danger")
@@ -28,6 +35,7 @@ async def list_tasks():
 @login_required
 @check_permission(action="create", resource="task")
 async def create_task():
+    """Create a new task"""
     if request.method == "POST":
         try:
             task = Task(
@@ -38,8 +46,17 @@ async def create_task():
                 else None,
                 priority=request.form.get("priority", "medium"),
                 user_id=current_user.id,
-                assigned_to=request.form.get("assigned_to"),
             )
+
+            # Check if user can assign tasks to others
+            permit = get_permit()
+            can_assign = await permit.check(
+                str(current_user.id), "assign", {"type": "task"}
+            )
+
+            if can_assign and request.form.get("assigned_to"):
+                task.assigned_to = request.form.get("assigned_to")
+
             db.session.add(task)
             db.session.commit()
             flash("Task created successfully!", "success")
@@ -49,7 +66,11 @@ async def create_task():
             flash("Error creating task.", "danger")
             return redirect(url_for("tasks.create_task"))
 
-    users = User.query.all() if current_user.role == "admin" else [current_user]
+    # Get users list based on assignment permission
+    permit = get_permit()
+    can_assign = await permit.check(str(current_user.id), "create", {"type": "task"})
+    users = User.query.all() if can_assign else [current_user]
+
     return render_template("tasks/create.html", users=users)
 
 
@@ -57,18 +78,33 @@ async def create_task():
 @login_required
 @check_permission(action="read", resource="task")
 async def view_task(id):
+    """View a specific task"""
     task = Task.query.get_or_404(id)
-    if current_user.role != "admin" and task.user_id != current_user.id:
+
+    # Check readall permission or ownership
+    permit = get_permit()
+    has_readall = await permit.check(str(current_user.id), "readall", {"type": "task"})
+
+    if not has_readall and task.user_id != current_user.id:
         abort(403)
+
     return render_template("tasks/view.html", task=task)
 
 
 @tasks.route("/<int:id>/edit", methods=["GET", "POST"])
 @login_required
-@check_permission(action="updateany", resource="task")
+@check_permission(action="update", resource="task")
 async def edit_task(id):
+    """Edit a task"""
     task = Task.query.get_or_404(id)
-    if current_user.role != "admin" and task.user_id != current_user.id:
+    permit = get_permit()
+
+    # Check updateany permission
+    has_updateany = await permit.check(
+        str(current_user.id), "updateany", {"type": "task"}
+    )
+
+    if not has_updateany and task.user_id != current_user.id:
         abort(403)
 
     if request.method == "POST":
@@ -83,7 +119,12 @@ async def edit_task(id):
             task.priority = request.form.get("priority", "medium")
             task.status = request.form.get("status", "pending")
 
-            if current_user.role == "admin":
+            # Check assignment permission
+            can_assign = await permit.check(
+                str(current_user.id), "update", {"type": "task"}
+            )
+
+            if can_assign and request.form.get("assigned_to"):
                 task.assigned_to = request.form.get("assigned_to")
 
             db.session.commit()
@@ -94,16 +135,27 @@ async def edit_task(id):
             flash("Error updating task.", "danger")
             return redirect(url_for("tasks.edit_task", id=id))
 
-    users = User.query.all() if current_user.role == "admin" else [current_user]
+    # Get users list based on assignment permission
+    can_assign = await permit.check(str(current_user.id), "assign", {"type": "task"})
+    users = User.query.all() if can_assign else [current_user]
+
     return render_template("tasks/edit.html", task=task, users=users)
 
 
 @tasks.route("/<int:id>/delete", methods=["POST"])
 @login_required
-@check_permission(action="deleteany", resource="task")
+@check_permission(action="delete", resource="task")
 async def delete_task(id):
+    """Delete a task"""
     task = Task.query.get_or_404(id)
-    if current_user.role != "admin" and task.user_id != current_user.id:
+    permit = get_permit()
+
+    # Check deleteany permission or ownership
+    has_deleteany = await permit.check(
+        str(current_user.id), "deleteany", {"type": "task"}
+    )
+
+    if not has_deleteany and task.user_id != current_user.id:
         abort(403)
 
     try:
@@ -122,7 +174,6 @@ async def delete_task(id):
 @check_permission(action="readall", resource="task")
 async def dashboard():
     """Admin dashboard showing all tasks"""
-    # Get all tasks with their owners
     tasks = Task.query.join(User, Task.user_id == User.id).all()
 
     # Calculate statistics
